@@ -80,8 +80,6 @@ public:
         if (c != EOF) {
             c = transform(c);
         }
-        byte b = c;
-        message_hash_.Update(&b, 1);
 
         return io::put(dest, c);
     }
@@ -105,20 +103,11 @@ public:
     }
 
     template<typename Device>
-    void close(Device& device, std::ios_base::open_mode mode) {
-        if (mode == std::ios_base::out) {
-            std::string digest(message_hash_.DigestSize(), ' ');
-            message_hash_.Final(reinterpret_cast<byte*>(&digest[0]));
-            for (auto c : digest) {
-                put(device, c);
-            }
-            std::cout << hex_encode(digest) << std::endl;
-        }
+    void close(Device&, std::ios::open_mode) {
         finalize();
     }
 
 private:
-    CryptoPP::SHA256 message_hash_;
     CryptoPP::SHA256 key_hash_;
     const std::string pass_;
     std::string seed_;
@@ -132,7 +121,7 @@ private:
 };
 
 EncryptionFilter::EncryptionFilter(const std::string& pass)
-    : message_hash_(), key_hash_(),
+    : key_hash_(),
       pass_(pass), seed_(""), current_key_(""), key_pos_(0), initialized_(false) {}
 
 void EncryptionFilter::initialize(const std::string& seed) {
@@ -159,7 +148,7 @@ int EncryptionFilter::transform(int c) {
 }
 
 
-class DigestFilter : public io::input_filter {
+class DigestFilter : public io::output_filter {
 public:
 
     template<typename Sink>
@@ -174,8 +163,8 @@ public:
 
     template<typename Sink>
     void close(Sink& dest) {
-        std::string digest(message_hash_.DigestSize(), ' ');
-        message_hash_.Final(reinterpret_cast<byte*>(&digest[0]));
+        std::string digest(hash_.DigestSize(), ' ');
+        hash_.Final(reinterpret_cast<byte*>(&digest[0]));
         io::write(dest, digest.data(), digest.length());
     }
 
@@ -194,41 +183,33 @@ class VerifyingFilter : public io::aggregate_filter<char> {
         }
 
         std::size_t message_size = src.size() - hash.DigestSize();
-        // hash.Update(reinterpret_cast<const byte*>(&src[0]), message_size);
-        std::cout << "Size: " << message_size << std::endl;
-        std::string digest1(src.begin() + message_size, src.end());
-        std::string message(src.begin(), src.begin() + message_size);
-        std::cout << message << std::endl;
-        std::cout << hex_encode(digest1) << std::endl;
-        std::cout << digest(hash, message) << std::endl;
+        hash.Update(reinterpret_cast<const byte*>(&src[0]), message_size);
         if (!hash.Verify(reinterpret_cast<const byte*>(&src[message_size]))) {
-            throw "Incorrect Password";
+            throw std::ios::failure("Incorrect Password");
         }
         dst.reserve(message_size);
         std::copy(src.begin(), src.end() - hash.DigestSize(),
                   std::back_inserter(dst));
-        // std::string msg(dst.begin(), dst.end());
-        // std::cerr << msg << std::endl;
     }
 };
 
 KryptoFile::KryptoFile(const std::string& pass, const std::string& file)
     : pass_(pass), file_(file), output_(), input_(), verified_input_(false) {
 
+    output_.push(DigestFilter());
     output_.push(EncryptionFilter(pass_));
     input_.push(VerifyingFilter());
     input_.push(EncryptionFilter(pass_));
+    input_.exceptions(std::ios::badbit);
 }
 
-using mode = std::ios_base;
-
 std::ostream& KryptoFile::output() {
-    output_.push(io::file_sink(file_, mode::binary | mode::out));
+    output_.push(io::file_sink(file_, std::ios::binary | std::ios::out));
     return output_;
 }
 
 std::istream& KryptoFile::input() {
-    input_.push(io::file_source(file_, mode::binary | mode::in));
+    input_.push(io::file_source(file_, std::ios::binary | std::ios::in));
     return input_;
 }
 

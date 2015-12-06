@@ -13,7 +13,7 @@ LDFLAGS+=-lboost_iostreams
 
 PROJECT=pass_manager
 
-MODULES=krypto_file manager
+MODULES=krypto_file manager application
 
 .PHONY: $(PROJECT)
 

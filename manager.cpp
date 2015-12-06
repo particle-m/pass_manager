@@ -1,6 +1,7 @@
 #include "manager.hpp"
 
 #include <iostream>
+#include <iomanip>
 
 namespace pass_manager {
 
@@ -14,7 +15,7 @@ void writeWithLen(std::ostream& stream, const std::string& str) {
     stream.write(str.data(), len);
 }
 
-void Record::dump(std::ostream& stream) {
+void Record::dump(std::ostream& stream) const {
     writeWithLen(stream, name);
     writeWithLen(stream, login);
     writeWithLen(stream, pass);
@@ -40,16 +41,19 @@ Record Record::load(std::istream& stream) {
 
 std::ostream& operator<<(std::ostream& stream, const Record& record) {
     return stream
+        << std::setw(20) << std::left
         << record.name  << " "
+        << std::setw(20) << std::left
         << record.login << " "
+        << std::setw(20) << std::left
         << record.pass  << " ";
 }
 
-void Manager::addRecord(const Record& record) {
+void Manager::add_record(const Record& record) {
     relations_.insert(std::make_pair(record.name, record));
 }
 
-bool Manager::hasRecord(const std::string& name) const {
+bool Manager::has_record(const std::string& name) const {
     return relations_.find(name) != relations_.end();
 }
 
