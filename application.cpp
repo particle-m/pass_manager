@@ -42,6 +42,20 @@ Application::~Application() {
     }
 }
 
+class quoted : public std::string {};
+
+std::istream &operator>>(std::istream &stream, quoted &str) {
+    return stream >> std::quoted(str);
+}
+
+std::vector<std::string> read_arguments(const std::string& input) {
+    std::istringstream stream(input);
+    std::vector<std::string> arguments;
+    std::copy(std::istream_iterator<quoted>(stream), {},
+              std::back_inserter(arguments));
+    return arguments;
+}
+
 void Application::loop() {
     while (!quit_) {
         std::cout << "> ";
@@ -50,11 +64,7 @@ void Application::loop() {
         std::string str_arguments;
         std::getline(std::cin, str_arguments);
         if (!std::cin.good()) { return; }
-        std::istringstream arguments_stream(str_arguments);
-        std::vector<std::string> arguments;
-        std::copy(std::istream_iterator<std::string>(arguments_stream), {},
-                  std::back_inserter(arguments));
-        get_action(action)(manager_, arguments);
+        get_action(action)(manager_, read_arguments(str_arguments));
     }
 }
 

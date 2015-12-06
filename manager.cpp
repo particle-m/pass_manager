@@ -9,19 +9,19 @@ Record::Record(const std::string& tname,
                const std::string& tlogin,
                const std::string& tpass): name(tname), login(tlogin), pass(tpass) {}
 
-void writeWithLen(std::ostream& stream, const std::string& str) {
+void write_with_len(std::ostream& stream, const std::string& str) {
     std::size_t len = str.length();
     stream.write(reinterpret_cast<const char*>(&len), sizeof(len));
     stream.write(str.data(), len);
 }
 
 void Record::dump(std::ostream& stream) const {
-    writeWithLen(stream, name);
-    writeWithLen(stream, login);
-    writeWithLen(stream, pass);
+    write_with_len(stream, name);
+    write_with_len(stream, login);
+    write_with_len(stream, pass);
 }
 
-std::string readWithLen(std::istream& stream) {
+std::string read_with_len(std::istream& stream) {
     std::size_t len;
     stream.read(reinterpret_cast<char*>(&len), sizeof(len));
     if (!stream.good()) {
@@ -33,9 +33,9 @@ std::string readWithLen(std::istream& stream) {
 }
 
 Record Record::load(std::istream& stream) {
-    std::string name  = readWithLen(stream);
-    std::string login = readWithLen(stream);
-    std::string pass  = readWithLen(stream);
+    std::string name  = read_with_len(stream);
+    std::string login = read_with_len(stream);
+    std::string pass  = read_with_len(stream);
     return Record(name, login, pass);
 }
 

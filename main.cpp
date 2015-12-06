@@ -31,7 +31,11 @@ void all(Manager& manager, const Args&) {
     for (const Record& record : manager) {
         std::cout << record << "\n";
     }
-    std::cout << std::endl;
+    std::cout << "Count: " << manager.size() << std::endl;
+}
+
+void count(Manager& manager, const Args&) {
+    std::cout << manager.size() << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -56,6 +60,7 @@ int main(int argc, char* argv[]) {
     app.register_action("all", "Lists all known credentials", all);
     app.register_action("find", "Lookups credentials by name", find);
     app.register_action("add", "Adds new credentials", add);
+    app.register_action("count", "Print count of entries", count);
 
     if (app.initialized()) {
         app.loop();
