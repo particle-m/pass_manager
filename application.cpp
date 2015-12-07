@@ -13,7 +13,6 @@ Application::Application(const std::string& pass, const std::string& file)
 
     try {
         initialize();
-        initialized_ = true;
     } catch (std::ios::failure& e) {
         std::cerr
             << "Error reading '" << file << "', "
@@ -36,9 +35,9 @@ Application::Application(const std::string& pass, const std::string& file)
 Application::~Application() {
     if (!initialized_) { return; }
 
-    auto& output = file_.output();
+    OutputKryptoLock lock(file_);
     for (const Record& record : manager_) {
-        record.dump(output);
+        record.dump(lock.stream);
     }
 }
 
@@ -61,10 +60,10 @@ void Application::loop() {
         std::cout << "> ";
         std::string action;
         std::cin >> action;
-        std::string str_arguments;
-        std::getline(std::cin, str_arguments);
+        std::string arguments;
+        std::getline(std::cin, arguments);
         if (!std::cin.good()) { return; }
-        get_action(action)(manager_, read_arguments(str_arguments));
+        get_action(action)(manager_, read_arguments(arguments));
     }
 }
 
@@ -75,17 +74,13 @@ void Application::register_action(const std::string& name,
 }
 
 void Application::initialize() {
-    try {
-        auto& input = file_.input();
-        while(true) {
-            Record record = Record::load(input);
-            if (input.eof()) { return; }
-            manager_.add_record(record);
-        }
-    } catch (...) {
-        file_.reset();
-        throw;
+    InputKryptoLock lock(file_);
+    while(true) {
+        Record record = Record::load(lock.stream);
+        if (lock.stream.eof()) { break; }
+        manager_.add_record(record);
     }
+    initialized_ = true;
 }
 
 void Application::quit(Manager&, const arguments&) {

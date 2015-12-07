@@ -15,8 +15,6 @@ public:
     std::istream& input();
     void reset();
 
-    bool verify_input();
-
 private:
     const std::string pass_;
     const std::string file_;
@@ -24,4 +22,25 @@ private:
     boost::iostreams::filtering_istream input_;
     bool verified_input_;
 };
+
+class KryptoLock {
+public:
+    KryptoLock(KryptoFile& file);
+    ~KryptoLock();
+private:
+    KryptoFile& file_;
+};
+
+class InputKryptoLock : private KryptoLock {
+public:
+    InputKryptoLock(KryptoFile& file);
+    std::istream& stream;
+};
+
+class OutputKryptoLock : private KryptoLock {
+public:
+    OutputKryptoLock(KryptoFile& file);
+    std::ostream& stream;
+};
+
 }

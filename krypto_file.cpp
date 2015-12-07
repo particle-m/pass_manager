@@ -223,4 +223,13 @@ void KryptoFile::reset() {
     verified_input_ = false;
 }
 
+KryptoLock::KryptoLock(KryptoFile& file): file_(file) {}
+KryptoLock::~KryptoLock() { file_.reset(); }
+
+InputKryptoLock::InputKryptoLock(KryptoFile& file)
+    : KryptoLock(file), stream(file.input()) {}
+
+OutputKryptoLock::OutputKryptoLock(KryptoFile& file)
+    : KryptoLock(file), stream(file.output()) {}
+
 }
