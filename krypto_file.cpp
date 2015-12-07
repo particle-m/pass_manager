@@ -17,34 +17,17 @@ namespace pass_manager {
 
 std::string generate_seed(CryptoPP::HashTransformation& transform) {
     CryptoPP::BlockingRng rng;
-    std::string seed;
-
-    auto sink    = new CryptoPP::StringSink(seed);
-    auto encoder = new CryptoPP::HexEncoder(sink);
-    CryptoPP::RandomNumberSource source(rng, transform.DigestSize(), true, encoder);
+    std::string seed(transform.DigestSize(), ' ');
+    rng.GenerateBlock(reinterpret_cast<byte*>(&seed[0]), seed.length());
     return seed;
-}
-
-CryptoPP::Filter* prepare_digest(CryptoPP::HashTransformation& transform,
-                                 std::string& digest) {
-    auto sink    = new CryptoPP::StringSink(digest);
-    auto encoder = new CryptoPP::HexEncoder(sink);
-    return new CryptoPP::HashFilter(transform, encoder);
 }
 
 std::string digest(CryptoPP::HashTransformation& transform,
                    const std::string& input) {
-    std::string digest;
-    CryptoPP::StringSource source(input, true, prepare_digest(transform, digest));
-
-    return digest;
-}
-
-std::string digest(CryptoPP::HashTransformation& transform,
-                   std::istream& input) {
-    std::string digest;
-    CryptoPP::FileSource source(input, true, prepare_digest(transform, digest));
-
+    std::string digest(transform.DigestSize(), ' ');
+    transform.CalculateDigest(reinterpret_cast<byte*>(&digest[0]),
+                              reinterpret_cast<const byte*>(input.data()),
+                              input.length());
     return digest;
 }
 
@@ -58,14 +41,6 @@ std::string xor_str(const std::string& lhs, const std::string& rhs) {
     return result;
 }
 
-std::string hex_encode(const std::string& str) {
-    CryptoPP::HexEncoder encoder;
-    encoder.Put(reinterpret_cast<const byte*>(str.data()), str.length());
-    std::string encoded(encoder.MaxRetrievable(), ' ');
-    encoder.Get(reinterpret_cast<byte*>(&encoded[0]), encoded.size());
-    return encoded;
-}
-
 class EncryptionFilter : public io::dual_use_filter {
 public:
     EncryptionFilter(const std::string& pass);
@@ -76,30 +51,20 @@ public:
             initialize(generate_seed(key_hash_));
             io::write(dest, seed_.data(), seed_.length());
         }
-
-        if (c != EOF) {
-            c = transform(c);
-        }
-
-        return io::put(dest, c);
+        return io::put(dest, transform(c));
     }
 
     template<typename Source>
     int get(Source& src) {
         if (!initialized_) {
-            std::streamsize size = key_hash_.DigestSize() * 2;
-            std::string seed(size, ' ');
-            if (io::read(src, &seed[0], size) == -1) {
+            std::string seed(key_hash_.DigestSize(), ' ');
+            if (io::read(src, &seed[0], seed.length()) == -1) {
                 return EOF;
             }
             initialize(seed);
         }
 
-        int c = io::get(src);
-        if (c == EOF || c == io::WOULD_BLOCK) {
-            return c;
-        }
-        return transform(c);
+        return transform(io::get(src));
     }
 
     template<typename Device>
@@ -138,6 +103,10 @@ void EncryptionFilter::finalize() {
 }
 
 int EncryptionFilter::transform(int c) {
+    if (c == EOF || c == io::WOULD_BLOCK) {
+        return c;
+    }
+
     if (key_pos_ < current_key_.length()) {
         return c ^ current_key_[key_pos_++];
     }
@@ -150,7 +119,6 @@ int EncryptionFilter::transform(int c) {
 
 class DigestFilter : public io::output_filter {
 public:
-
     template<typename Sink>
     bool put(Sink& dest, int c) {
         if (c != EOF) {
@@ -195,7 +163,6 @@ class VerifyingFilter : public io::aggregate_filter<char> {
 
 KryptoFile::KryptoFile(const std::string& pass, const std::string& file)
     : pass_(pass), file_(file), output_(), input_(), verified_input_(false) {
-
     output_.push(DigestFilter());
     output_.push(EncryptionFilter(pass_));
     input_.push(VerifyingFilter());
