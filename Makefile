@@ -15,7 +15,9 @@ PROJECT=pass_manager
 
 MODULES=krypto_file manager application
 
-.PHONY: $(PROJECT)
+.PHONY: main
+
+main: $(PROJECT)
 
 $(PROJECT): main.cpp $(MODULES:=.o)
 	$(CXX) main.cpp $(MODULES:=.o) $(CXXFLAGS) $(LDFLAGS) -o $@
